@@ -1,11 +1,11 @@
 package com.jsoniter.output;
 
+import java.io.*;
+import java.lang.reflect.Type;
+import java.nio.charset.Charset;
+
 import com.jsoniter.any.Any;
 import com.jsoniter.spi.*;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.lang.reflect.Type;
 
 public class JsonStream extends OutputStream {
 
@@ -442,27 +442,43 @@ public class JsonStream extends OutputStream {
     }
 
     public static void serialize(Type type, Object obj, OutputStream out) {
-        serialize(type, obj, out, false);
+        serialize(type, obj, Charset.defaultCharset(), out);
+    }
+    
+    public static void serialize(Type type, Object obj, Charset charset, OutputStream out) {
+        serialize(type, obj, charset, out, false);
     }
 
     public static String serialize(Config config, Object obj) {
-        return serialize(config, obj.getClass(), obj);
+        return serialize(config, obj.getClass(), obj, Charset.defaultCharset());
+    }
+    
+    public static String serialize(Config config, Object obj, Charset charset) {
+        return serialize(config, obj.getClass(), obj, charset);
     }
 
     public static String serialize(Object obj) {
-        return serialize(obj.getClass(), obj);
+        return serialize(obj, Charset.defaultCharset());
     }
 
+    public static String serialize(Object obj, Charset charset) {
+        return serialize(obj.getClass(), obj, charset);
+    }
+    
     public static String serialize(Config config, TypeLiteral typeLiteral, Object obj) {
-        return serialize(config, typeLiteral.getType(), obj);
+        return serialize(config, typeLiteral.getType(), obj, Charset.defaultCharset());
+    }
+    
+    public static String serialize(Config config, TypeLiteral typeLiteral, Object obj, Charset charset) {
+        return serialize(config, typeLiteral.getType(), obj, charset);
     }
 
-    private static String serialize(Config config, Type type, Object obj) {
+    private static String serialize(Config config, Type type, Object obj, Charset charset) {
         final Config configBackup = JsoniterSpi.getCurrentConfig();
         // Set temporary config
         JsoniterSpi.setCurrentConfig(config);
         try {
-            return serialize(type, obj);
+            return serialize(type, obj, charset);
         } finally {
             // Revert old config
             JsoniterSpi.setCurrentConfig(configBackup);
@@ -470,19 +486,27 @@ public class JsonStream extends OutputStream {
     }
 
     public static String serialize(TypeLiteral typeLiteral, Object obj) {
-        return serialize(typeLiteral.getType(), obj);
+        return serialize(typeLiteral.getType(), obj, Charset.defaultCharset());
     }
-
+    
+    public static String serialize(TypeLiteral typeLiteral, Object obj, Charset charset) {
+        return serialize(typeLiteral.getType(), obj, charset);
+    }
+    
     public static String serialize(boolean escapeUnicode, Type type, Object obj) {
+        return serialize(escapeUnicode, type, obj, Charset.defaultCharset());
+    }
+    
+    public static String serialize(boolean escapeUnicode, Type type, Object obj, Charset charset) {
         final Config currentConfig = JsoniterSpi.getCurrentConfig();
-        return serialize(currentConfig.copyBuilder().escapeUnicode(escapeUnicode).build(), type, obj);
+        return serialize(currentConfig.copyBuilder().escapeUnicode(escapeUnicode).build(), type, obj, charset);
     }
 
-    private static String serialize(Type type, Object obj) {
-        return serialize(type, obj, null, true);
+    private static String serialize(Type type, Object obj, Charset charset) {
+        return serialize(type, obj, charset, null, true);
     }
 
-    private static String serialize(Type type, Object obj, OutputStream out, boolean returnObjAsString) {
+    private static String serialize(Type type, Object obj, Charset charset, OutputStream out,  boolean returnObjAsString) {
         final JsonStream stream = JsonStreamPool.borrowJsonStream();
         final boolean escapeUnicode = JsoniterSpi.getCurrentConfig().escapeUnicode();
         try {
@@ -495,8 +519,8 @@ public class JsonStream extends OutputStream {
             if (!returnObjAsString) {
                 return "";
             }
-            if (escapeUnicode) {
-                return new String(stream.buf, 0, stream.count);
+            if (escapeUnicode || !charset.equals(Charset.defaultCharset())) {
+                return new String(stream.buf, 0, stream.count, charset);
             } else {
                 return new String(stream.buf, 0, stream.count, "UTF8");
             }
